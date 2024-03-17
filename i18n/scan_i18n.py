@@ -43,7 +43,7 @@ app.py 16
 infer-web.py 147
 scan_i18n.py 0
 i18n.py 0
-lib/train/process_ckpt.py 1
+lib_src/train/process_ckpt.py 1
 """
 print()
 print("Total unique:", len(code_keys))

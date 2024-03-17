@@ -3,8 +3,8 @@ import os
 import pickle
 import sys
 import traceback
-from infer.lib import jit
-from infer.lib.jit.get_synthesizer import get_synthesizer
+from infer.lib_src import jit
+from infer.lib_src.jit.get_synthesizer import get_synthesizer
 from time import time as ttime
 import fairseq
 import faiss
@@ -17,7 +17,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torchcrepe
 
-from infer.lib.infer_pack.models import (
+from infer.lib_src.infer_pack.models import (
     SynthesizerTrnMs256NSFsid,
     SynthesizerTrnMs256NSFsid_nono,
     SynthesizerTrnMs768NSFsid,
@@ -307,7 +307,7 @@ class RVC:
 
     def get_f0_rmvpe(self, x, f0_up_key):
         if hasattr(self, "model_rmvpe") == False:
-            from infer.lib.rmvpe import RMVPE
+            from infer.lib_src.rmvpe import RMVPE
 
             printt("Loading rmvpe model")
             self.model_rmvpe = RMVPE(

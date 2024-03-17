@@ -7,7 +7,7 @@ sys.path.append(now_dir)
 load_dotenv()
 from infer.modules.vc.modules import VC
 from infer.modules.uvr5.modules import uvr
-from infer.lib.train.process_ckpt import (
+from infer.lib_src.train.process_ckpt import (
     change_info,
     extract_small_model,
     merge,

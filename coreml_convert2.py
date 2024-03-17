@@ -3,7 +3,7 @@
 # This script creates a RVC model (from onnx_models_onnx), trace it and convert it to CoreML
 # To be able to trace without 'intimplicit' op issue, you need to patch Retrieval-based-Voice-Conversion-WebUI sources
 # Remove the @torch.jit.script decorator
-# from fused_add_tanh_sigmoid_multiply function in infer/lib/infer_pack/commons.py
+# from fused_add_tanh_sigmoid_multiply function in infer/lib_src/infer_pack/commons.py
 
 
 import torch
@@ -28,7 +28,7 @@ test_pitchInt = torch.randint(size=(1, 200), low=5, high=255)
 test_pitchFloat = torch.rand(1, 200).float()
 test_ds = torch.LongTensor([0])
 
-from infer.lib.infer_pack.models_onnx import SynthesizerTrnMsNSFsidM
+from infer.lib_src.infer_pack.models_onnx import SynthesizerTrnMsNSFsidM
 
 model = SynthesizerTrnMsNSFsidM(*cpt["config"], is_half=False,
     version=cpt.get("version", "v1"))

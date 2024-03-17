@@ -4,7 +4,7 @@ import coremltools as ct
 import numpy as np
 
 def get_synthesizer(pth_path, device=torch.device("cpu")):
-    from infer.lib.infer_pack.models import (
+    from infer.lib_src.infer_pack.models import (
         SynthesizerTrnMs256NSFsid,
         SynthesizerTrnMs256NSFsid_nono,
         SynthesizerTrnMs768NSFsid,

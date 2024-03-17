@@ -9,7 +9,7 @@ sys.path.append(os.path.join(now_dir))
 
 import datetime
 
-from infer.lib.train import utils
+from infer.lib_src.train import utils
 
 hps = utils.get_hparams()
 os.environ["CUDA_VISIBLE_DEVICES"] = hps.gpus.replace("-", ",")
@@ -45,8 +45,8 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 
-from infer.lib.infer_pack import commons
-from infer.lib.train.data_utils import (
+from infer.lib_src.infer_pack import commons
+from infer.lib_src.train.data_utils import (
     DistributedBucketSampler,
     TextAudioCollate,
     TextAudioCollateMultiNSFsid,
@@ -55,26 +55,26 @@ from infer.lib.train.data_utils import (
 )
 
 if hps.version == "v1":
-    from infer.lib.infer_pack.models import MultiPeriodDiscriminator
-    from infer.lib.infer_pack.models import SynthesizerTrnMs256NSFsid as RVC_Model_f0
-    from infer.lib.infer_pack.models import (
+    from infer.lib_src.infer_pack.models import MultiPeriodDiscriminator
+    from infer.lib_src.infer_pack.models import SynthesizerTrnMs256NSFsid as RVC_Model_f0
+    from infer.lib_src.infer_pack.models import (
         SynthesizerTrnMs256NSFsid_nono as RVC_Model_nof0,
     )
 else:
-    from infer.lib.infer_pack.models import (
+    from infer.lib_src.infer_pack.models import (
         SynthesizerTrnMs768NSFsid as RVC_Model_f0,
         SynthesizerTrnMs768NSFsid_nono as RVC_Model_nof0,
         MultiPeriodDiscriminatorV2 as MultiPeriodDiscriminator,
     )
 
-from infer.lib.train.losses import (
+from infer.lib_src.train.losses import (
     discriminator_loss,
     feature_loss,
     generator_loss,
     kl_loss,
 )
-from infer.lib.train.mel_processing import mel_spectrogram_torch, spec_to_mel_torch
-from infer.lib.train.process_ckpt import savee
+from infer.lib_src.train.mel_processing import mel_spectrogram_torch, spec_to_mel_torch
+from infer.lib_src.train.process_ckpt import savee
 
 global_step = 0
 

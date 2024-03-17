@@ -11,7 +11,7 @@ import logging
 import numpy as np
 import pyworld
 
-from infer.lib.audio import load_audio
+from infer.lib_src.audio import load_audio
 
 logging.getLogger("numba").setLevel(logging.WARNING)
 from multiprocessing import Process
@@ -83,7 +83,7 @@ class FeatureInput(object):
             f0 = pyworld.stonemask(x.astype(np.double), f0, t, self.fs)
         elif f0_method == "rmvpe":
             if hasattr(self, "model_rmvpe") == False:
-                from infer.lib.rmvpe import RMVPE
+                from infer.lib_src.rmvpe import RMVPE
 
                 print("Loading rmvpe model")
                 self.model_rmvpe = RMVPE(

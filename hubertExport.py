@@ -3,7 +3,7 @@
 
 import torch
 
-from infer.lib.jit.get_hubert import get_hubert_model
+from infer.lib_src.jit.get_hubert import get_hubert_model
 
 device = torch.device("cpu")
 

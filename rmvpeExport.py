@@ -1,7 +1,7 @@
 import torch
 
-from infer.lib.rmvpe import RMVPE
-from infer.lib.jit.get_rmvpe import get_rmvpe
+from infer.lib_src.rmvpe import RMVPE
+from infer.lib_src.jit.get_rmvpe import get_rmvpe
 
 print("Loading rmvpe model")
 #model = get_rmvpe("./Liza/rmvpe.pt", device=torch.device("cpu"))

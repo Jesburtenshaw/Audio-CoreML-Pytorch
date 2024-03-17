@@ -11,7 +11,7 @@ import logging
 import numpy as np
 import pyworld
 
-from infer.lib.audio import load_audio
+from infer.lib_src.audio import load_audio
 
 logging.getLogger("numba").setLevel(logging.WARNING)
 
@@ -46,7 +46,7 @@ class FeatureInput(object):
         # p_len = x.shape[0] // self.hop
         if f0_method == "rmvpe":
             if hasattr(self, "model_rmvpe") == False:
-                from infer.lib.rmvpe import RMVPE
+                from infer.lib_src.rmvpe import RMVPE
 
                 print("Loading rmvpe model")
                 self.model_rmvpe = RMVPE(

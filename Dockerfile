@@ -13,7 +13,7 @@ RUN apt-get update && \
     apt-get install -y -qq ffmpeg aria2 && apt clean && \
     apt-get install -y software-properties-common && \
     apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
+    rm -rf /var/lib_src/apt/lists/*
 
 # Add the deadsnakes PPA to get Python 3.9
 RUN add-apt-repository ppa:deadsnakes/ppa
