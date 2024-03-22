@@ -77,11 +77,11 @@ def main():
     for key, value in state_dict.items():
         print(f'Key: {key}, shape: {value.shape}')
 
-    phone = state_dict['phone'].float()
-    phone_lengths = state_dict['phone_length'].to(dtype=torch.int32)
-    pitch = state_dict['pitch'].to(dtype=torch.int32)
-    pitchf = state_dict['pitchf'].float()
-    ds = state_dict['ds'].to(dtype=torch.int32)
+    phone = torch.concat([state_dict['phone'].float(), state_dict['phone'].float()])
+    phone_lengths = torch.concat([state_dict['phone_length'].to(dtype=torch.int32), state_dict['phone_length'].to(dtype=torch.int32)])
+    pitch = torch.concat([state_dict['pitch'].to(dtype=torch.int32), state_dict['pitch'].to(dtype=torch.int32)])
+    pitchf = torch.concat([state_dict['pitchf'].float(), state_dict['pitchf'].float()])
+    ds = torch.concat([state_dict['ds'].to(dtype=torch.int32), state_dict['ds'].to(dtype=torch.int32)])
 
     input_data = {
         'phone': phone.numpy().astype(np.float32),
@@ -94,7 +94,7 @@ def main():
     model_path = "lisa/LISA.pth"
     onnx_output_path = "./lisa/LISA.onnx"
     coreml_output_path = "./lisa/LISA.mlpackage"
-    convert = False
+    convert = True
     device = torch.device("cpu")
     model, cpt = get_synthesizer(model_path, device)
     assert isinstance(cpt, dict)
@@ -102,7 +102,7 @@ def main():
     res = model(phone, phone_lengths, pitch, pitchf, ds)
     result_audio = res[0].detach().numpy()
     result_audio = np.reshape(result_audio, -1)
-    write('result.wav', 16000, result_audio)
+
     if convert:
         traced_model = torch.jit.trace(
             model.eval(),
@@ -144,7 +144,7 @@ def main():
         output = session.run(None, input_data)
         onnx_audio = output[0]
         onnx_audio = np.reshape(onnx_audio, -1)
-        write('onnx_audio.wav', 16000, onnx_audio)
+        write('onnx_audio.wav', 40000, onnx_audio)
 
         average_distance = np.mean(np.abs(result_audio - onnx_audio))
         print(f"Average distance between the converted and onnx model: {average_distance}")
