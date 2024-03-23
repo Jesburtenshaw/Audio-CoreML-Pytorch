@@ -77,11 +77,11 @@ def main():
     for key, value in state_dict.items():
         print(f'Key: {key}, shape: {value.shape}')
 
-    phone = torch.concat([state_dict['phone'].float(), state_dict['phone'].float()])
-    phone_lengths = torch.concat([state_dict['phone_length'].to(dtype=torch.int32), state_dict['phone_length'].to(dtype=torch.int32)])
-    pitch = torch.concat([state_dict['pitch'].to(dtype=torch.int32), state_dict['pitch'].to(dtype=torch.int32)])
-    pitchf = torch.concat([state_dict['pitchf'].float(), state_dict['pitchf'].float()])
-    ds = torch.concat([state_dict['ds'].to(dtype=torch.int32), state_dict['ds'].to(dtype=torch.int32)])
+    phone = state_dict['phone'].float()
+    phone_lengths = state_dict['phone_length'].to(dtype=torch.int32)
+    pitch = state_dict['pitch'].to(dtype=torch.int32)
+    pitchf = state_dict['pitchf'].float()
+    ds = state_dict['ds'].to(dtype=torch.int32)
 
     input_data = {
         'phone': phone.numpy().astype(np.float32),
@@ -99,9 +99,15 @@ def main():
     model, cpt = get_synthesizer(model_path, device)
     assert isinstance(cpt, dict)
 
-    res = model(phone, phone_lengths, pitch, pitchf, ds)
-    result_audio = res[0].detach().numpy()
-    result_audio = np.reshape(result_audio, -1)
+    res1 = model(phone, phone_lengths, pitch, pitchf, ds)[0].detach().numpy().flatten()
+    res2 = model(phone, phone_lengths, pitch, pitchf, ds)[0].detach().numpy().flatten()
+
+    max_dist = np.max(np.abs(res1 - res2))
+    print(f"Max distance between two consecutive inferences: {max_dist}")
+
+    result_audio = res1
+
+    write('result_audio.wav', 40000, result_audio)
 
     if convert:
         traced_model = torch.jit.trace(
@@ -170,6 +176,35 @@ def main():
             ],
             compute_precision=ct.precision.FLOAT16,
         )
+
+        # range_dim = ct.RangeDim(lower_bound=25, upper_bound=200, default=100)
+        # input_shape = ct.Shape(
+        #     shape=(
+        #         1,
+        #         range_dim,
+        #         vec_channels
+        #     ))
+        #
+        # mlmodel = ct.converters.convert(
+        #     traced_model,
+        #     convert_to='mlprogram',
+        #     inputs=[
+        #         ct.TensorType(name='phone', shape=input_shape, dtype=np.float32),
+        #         ct.TensorType(name='phone_lengths', shape=(1,), dtype=np.int64),
+        #         ct.TensorType(name='pitch', shape=ct.Shape(shape=(1, range_dim)), dtype=np.int64),
+        #         ct.TensorType(name='pitchf', shape=ct.Shape(shape=(1, range_dim,)), dtype=np.float32),
+        #         ct.TensorType(name='ds', shape=(1,), dtype=np.int64),
+        #     ],
+        #     outputs=[
+        #         ct.TensorType(name='audio'),
+        #         ct.TensorType(name='x_mask'),
+        #         ct.TensorType(name='z'),
+        #         ct.TensorType(name='z_p'),
+        #         ct.TensorType(name='m_p'),
+        #         ct.TensorType(name='logs_p'),
+        #     ],
+        #     compute_precision=ct.precision.FLOAT16,
+        # )
         print("Saving CoreML Package")
         mlmodel.save(coreml_output_path)
 
@@ -187,11 +222,14 @@ def main():
         end = time.time()
         time_sum += end - start
     print(f"Average inference time: {time_sum / inf_count} seconds")
-    audio = output["audio"]
-    audio = np.array(audio).astype(np.float32).reshape(-1)
-    write('output_coreml.wav', 16000, audio)
-    average_distance = np.mean(np.abs(result_audio - audio))
+    audio1 = ml_model.predict(input_data)["audio"].astype(np.float32).reshape(-1)
+    audio2 = ml_model.predict(input_data)["audio"].astype(np.float32).reshape(-1)
+
+    write('output_coreml.wav', 40000, audio1)
+    average_distance = np.mean(np.abs(result_audio - audio1))
     print(f"Average distance between the original and coreml model: {average_distance}")
+    max_dist = np.max(np.abs(audio1 - audio2))
+    print(f"Max distance between two consecutive inferences: {max_dist}")
 
 
 def save_decoder_input():
@@ -228,6 +266,7 @@ def save_decoder_input():
     decoder_output = model.get_up_to_decoder(phone, phone_lengths, pitch, pitchf, ds)
     with open('decoder_input.pkl', 'wb') as f:
         pickle.dump(decoder_output, f)
+
 
 def test_decoder():
     model_path = "lisa/LISA.pth"
@@ -299,9 +338,10 @@ def test_decoder():
     output = ml_model.predict(input_dict)
     audio = output["audio"]
     audio = np.array(audio).astype(np.float32).reshape(-1)
-    write('output_coreml_decoder.wav', 16000, audio)
+    write('output_coreml_decoder.wav', 40000, audio)
     average_distance = np.mean(np.abs(onnx_output - audio))
     print(f"Average distance between the onnx and coreml decoder model: {average_distance}")
+
 
 if __name__ == "__main__":
     # test_decoder()
