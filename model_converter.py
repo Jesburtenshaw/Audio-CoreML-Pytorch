@@ -82,6 +82,8 @@ def main():
     pitch = state_dict['pitch'].to(dtype=torch.int32)
     pitchf = state_dict['pitchf'].float()
     ds = state_dict['ds'].to(dtype=torch.int32)
+    skip_head = state_dict['skip_head'].to(dtype=torch.int32)
+    return_length = state_dict['return_length'].to(dtype=torch.int32)
 
     input_data = {
         'phone': phone.numpy().astype(np.float32),
@@ -89,6 +91,9 @@ def main():
         'pitch': pitch.numpy().astype(np.int32),
         'pitchf': pitchf.numpy().astype(np.float32),
         'ds': ds.numpy().astype(np.int32),
+        'skip_head': skip_head.numpy().astype(np.int32),
+        'return_length': return_length.numpy().astype(np.int32),
+
     }
 
     model_path = "lisa/LISA.pth"
@@ -118,10 +123,12 @@ def main():
                 pitch.to(device, dtype=torch.int32),
                 pitchf.to(device, dtype=torch.float32),
                 ds.to(device, dtype=torch.int32),
+                skip_head.to(device, dtype=torch.int32),
+                return_length.to(device, dtype=torch.int32),
             ),
             check_trace=True
         )
-        input_names = ["phone", "phone_lengths", "pitch", "pitchf", "ds"]
+        input_names = ["phone", "phone_lengths", "pitch", "pitchf", "ds", "skip_head", "return_length"]
         torch.onnx.export(
             traced_model,
             (
@@ -130,6 +137,8 @@ def main():
                 pitch.to(device, dtype=torch.int32),
                 pitchf.to(device).float(),
                 ds.to(device, dtype=torch.int32),
+                skip_head.to(device, dtype=torch.int32),
+                return_length.to(device, dtype=torch.int32),
             ),
             onnx_output_path,
             dynamic_axes={
@@ -144,16 +153,16 @@ def main():
             # output_names=output_names,
         )
 
-        session = onnxruntime.InferenceSession(onnx_output_path)
-        input_names = [input.name for input in session.get_inputs()]
-        print("Input names: ", input_names)
-        output = session.run(None, input_data)
-        onnx_audio = output[0]
-        onnx_audio = np.reshape(onnx_audio, -1)
-        write('onnx_audio.wav', 40000, onnx_audio)
+        # session = onnxruntime.InferenceSession(onnx_output_path)
+        # input_names = [input.name for input in session.get_inputs()]
+        # print("Input names: ", input_names)
+        # output = session.run(None, input_data)
+        # onnx_audio = output[0]
+        # onnx_audio = np.reshape(onnx_audio, -1)
+        # write('onnx_audio.wav', 40000, onnx_audio)
 
-        average_distance = np.mean(np.abs(result_audio - onnx_audio))
-        print(f"Average distance between the converted and onnx model: {average_distance}")
+        # average_distance = np.mean(np.abs(result_audio - onnx_audio))
+        # print(f"Average distance between the converted and onnx model: {average_distance}")
 
         mlmodel = ct.converters.convert(
             traced_model,
@@ -165,6 +174,8 @@ def main():
                 ct.TensorType(name='pitch', shape=pitch.shape, dtype=np.int32),
                 ct.TensorType(name='pitchf', shape=pitchf.shape, dtype=np.float32),
                 ct.TensorType(name='ds', shape=ds.shape, dtype=np.int32),
+                ct.TensorType(name='skip_head', shape=skip_head.shape, dtype=np.int32),
+                ct.TensorType(name='return_length', shape=return_length.shape, dtype=np.int32),
             ],
             outputs=[
                 ct.TensorType(name='audio'),
