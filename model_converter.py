@@ -82,8 +82,12 @@ def main():
     pitch = state_dict['pitch'].to(dtype=torch.int32)
     pitchf = state_dict['pitchf'].float()
     ds = state_dict['ds'].to(dtype=torch.int32)
-    skip_head = state_dict['skip_head'].to(dtype=torch.int32)
-    return_length = state_dict['return_length'].to(dtype=torch.int32)
+    skip_head = torch.tensor([250], dtype=torch.int32)
+    return_length = torch.tensor([31], dtype=torch.int32)
+
+    phone = torch.concat([phone, phone, phone], axis=1)
+    pitch = torch.concat([pitch, pitch, pitch], axis=1)
+    pitchf = torch.concat([pitchf, pitchf, pitchf], axis=1)
 
     input_data = {
         'phone': phone.numpy().astype(np.float32),
@@ -104,8 +108,8 @@ def main():
     model, cpt = get_synthesizer(model_path, device)
     assert isinstance(cpt, dict)
 
-    res1 = model(phone, phone_lengths, pitch, pitchf, ds)[0].detach().numpy().flatten()
-    res2 = model(phone, phone_lengths, pitch, pitchf, ds)[0].detach().numpy().flatten()
+    res1 = model(phone, phone_lengths, pitch, pitchf, ds, skip_head, return_length)[0].detach().numpy().flatten()
+    res2 = model(phone, phone_lengths, pitch, pitchf, ds, skip_head, return_length)[0].detach().numpy().flatten()
 
     max_dist = np.max(np.abs(res1 - res2))
     print(f"Max distance between two consecutive inferences: {max_dist}")
@@ -128,6 +132,8 @@ def main():
             ),
             check_trace=True
         )
+        # saved traced model
+        traced_model.save("lisa/LISA_traced.pt")
         input_names = ["phone", "phone_lengths", "pitch", "pitchf", "ds", "skip_head", "return_length"]
         torch.onnx.export(
             traced_model,
@@ -153,16 +159,17 @@ def main():
             # output_names=output_names,
         )
 
-        # session = onnxruntime.InferenceSession(onnx_output_path)
-        # input_names = [input.name for input in session.get_inputs()]
-        # print("Input names: ", input_names)
-        # output = session.run(None, input_data)
-        # onnx_audio = output[0]
-        # onnx_audio = np.reshape(onnx_audio, -1)
-        # write('onnx_audio.wav', 40000, onnx_audio)
+        session = onnxruntime.InferenceSession(onnx_output_path)
+        input_names = [input.name for input in session.get_inputs()]
+        print("Input names: ", input_names)
+        onnx_input = {input_names[i]: input_data[input_names[i]] for i in range(len(input_names))}
+        output = session.run(None, onnx_input)
+        onnx_audio = output[0]
+        onnx_audio = np.reshape(onnx_audio, -1)
+        write('onnx_audio.wav', 40000, onnx_audio)
 
-        # average_distance = np.mean(np.abs(result_audio - onnx_audio))
-        # print(f"Average distance between the converted and onnx model: {average_distance}")
+        average_distance = np.mean(np.abs(result_audio - onnx_audio))
+        print(f"Average distance between the converted and onnx model: {average_distance}")
 
         mlmodel = ct.converters.convert(
             traced_model,
@@ -220,8 +227,6 @@ def main():
         mlmodel.save(coreml_output_path)
 
     ml_model = ct.models.MLModel(coreml_output_path)
-    ml_model_config = ml_model.get_spec()
-    print(ml_model_config)
     warm_up = 5
     for i in range(warm_up):
         output = ml_model.predict(input_data)
@@ -235,123 +240,13 @@ def main():
     print(f"Average inference time: {time_sum / inf_count} seconds")
     audio1 = ml_model.predict(input_data)["audio"].astype(np.float32).reshape(-1)
     audio2 = ml_model.predict(input_data)["audio"].astype(np.float32).reshape(-1)
-
+    print("Shape is ", audio1.shape)
     write('output_coreml.wav', 40000, audio1)
     average_distance = np.mean(np.abs(result_audio - audio1))
     print(f"Average distance between the original and coreml model: {average_distance}")
     max_dist = np.max(np.abs(audio1 - audio2))
     print(f"Max distance between two consecutive inferences: {max_dist}")
 
-
-def save_decoder_input():
-    test_input_file = "./assets/input.pt"
-    test_input = torch.jit.load(test_input_file)
-    state_dict = test_input.state_dict()
-
-    # Print the keys and values from the state dictionary
-    for key, value in state_dict.items():
-        print(f'Key: {key}, shape: {value.shape}')
-
-    phone = state_dict['phone'].float()
-    phone_lengths = state_dict['phone_length'].to(dtype=torch.int32)
-    pitch = state_dict['pitch'].to(dtype=torch.int32)
-    pitchf = state_dict['pitchf'].float()
-    ds = state_dict['ds'].to(dtype=torch.int32)
-
-    input_data = {
-        'phone': phone.numpy().astype(np.float32),
-        'phone_lengths': phone_lengths.numpy().astype(np.int32),
-        'pitch': pitch.numpy().astype(np.int32),
-        'pitchf': pitchf.numpy().astype(np.float32),
-        'ds': ds.numpy().astype(np.int32),
-    }
-
-    model_path = "lisa/LISA.pth"
-    onnx_output_path = "./lisa/LISA.onnx"
-    coreml_output_path = "./lisa/LISA.mlpackage"
-    convert = True
-    device = torch.device("cpu")
-    model, cpt = get_synthesizer(model_path, device)
-    assert isinstance(cpt, dict)
-
-    decoder_output = model.get_up_to_decoder(phone, phone_lengths, pitch, pitchf, ds)
-    with open('decoder_input.pkl', 'wb') as f:
-        pickle.dump(decoder_output, f)
-
-
-def test_decoder():
-    model_path = "lisa/LISA.pth"
-    onnx_output_path = "./lisa/LISA.onnx"
-    coreml_output_path = "./lisa/LISA.mlpackage"
-    convert = True
-    device = torch.device("cpu")
-    model, cpt = get_synthesizer(model_path, device)
-
-    decoder = model.dec
-
-    with open('decoder_input.pkl', 'rb') as f:
-        decoder_input = pickle.load(f)
-
-    decoder_output = decoder(*decoder_input)
-    decoder_output = decoder_output[0].detach().numpy().astype(np.float32)
-    decoder_output = np.reshape(decoder_output, -1)
-    input_dict = {
-        'z': decoder_input[0].detach().numpy().astype(np.float32),
-        'nsff': decoder_input[1].detach().numpy().astype(np.float32),
-        'g': decoder_input[2].detach().numpy().astype(np.float32),
-    }
-    decoder_onnx_path = "lisa/decoder.onnx"
-    decoder_coreml_path = "lisa/decoder.mlpackage"
-
-    traced_decoder = torch.jit.trace(
-        decoder.eval(),
-        decoder_input,
-        check_trace=True
-    )
-    input_names = ["z", "nsff", "g"]
-    torch.onnx.export(
-        traced_decoder,
-        decoder_input,
-        decoder_onnx_path,
-        do_constant_folding=True,
-        opset_version=17,
-        verbose=False,
-        input_names=input_names,
-    )
-
-    session = onnxruntime.InferenceSession(decoder_onnx_path)
-    input_names = [input.name for input in session.get_inputs()]
-    print("Input names: ", input_names)
-    output = session.run(None, {inp_name: input_dict[inp_name] for inp_name in input_names})
-    onnx_output = output[0]
-    onnx_output = np.reshape(onnx_output, -1)
-
-    average_distance = np.mean(np.abs(decoder_output - onnx_output))
-    print(f"Average distance between the converted and onnx decoder model: {average_distance}")
-
-    mlmodel = ct.converters.convert(
-        traced_decoder,
-        convert_to='mlprogram',
-        inputs=[
-            ct.TensorType(name='z', shape=decoder_input[0].shape, dtype=np.float32),
-            ct.TensorType(name='nsff', shape=decoder_input[1].shape, dtype=np.float32),
-            ct.TensorType(name='g', shape=decoder_input[2].shape, dtype=np.float32),
-        ],
-        outputs=[
-            ct.TensorType(name='audio'),
-        ],
-        compute_precision=ct.precision.FLOAT32,
-    )
-    print("Saving CoreML Package")
-    mlmodel.save(decoder_coreml_path)
-
-    ml_model = ct.models.MLModel(decoder_coreml_path)
-    output = ml_model.predict(input_dict)
-    audio = output["audio"]
-    audio = np.array(audio).astype(np.float32).reshape(-1)
-    write('output_coreml_decoder.wav', 40000, audio)
-    average_distance = np.mean(np.abs(onnx_output - audio))
-    print(f"Average distance between the onnx and coreml decoder model: {average_distance}")
 
 
 if __name__ == "__main__":
